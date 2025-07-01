@@ -124,15 +124,9 @@ const Home = () => {
   
     const now = new Date();
   
-    // ░░░ 1. Текущая неделя: Понедельник — Воскресенье ░░░
-    const startOfWeek = new Date(now);
-    const endOfWeek = new Date(now);
-    const day = now.getDay();
-    const diffToMonday = day === 0 ? -6 : 1 - day;
-    startOfWeek.setDate(now.getDate() + diffToMonday);
-    startOfWeek.setHours(0, 0, 0, 0);
-    endOfWeek.setDate(startOfWeek.getDate() + 6);
-    endOfWeek.setHours(23, 59, 59, 999);
+    // 1. Текущая неделя: Понедельник — Воскресенье
+    const startOfWeek = getStartOfWeek(now);
+    const endOfWeek = getEndOfWeek(now);
   
     const weekTransactions = dashboardData.last30DaysExpense?.transactions?.filter(tx => {
       const txDate = new Date(tx.date);
@@ -140,7 +134,7 @@ const Home = () => {
     }) || [];
     const weekSpent = weekTransactions.reduce((acc, tx) => acc + tx.amount, 0);
   
-    // ░░░ 2. Текущий месяц: с 1 по 30/31 ░░░
+    // 2. Текущий месяц: с 1 по 30/31
     const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
     const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
     endOfMonth.setHours(23, 59, 59, 999);
@@ -151,7 +145,7 @@ const Home = () => {
     }) || [];
     const monthSpent = monthTransactions.reduce((acc, tx) => acc + tx.amount, 0);
   
-    // ░░░ 3. Кастомный лимит: пользователь задаёт дату ░░░
+    // 3. Кастомный лимит: пользователь задаёт дату
     let customSpent = 0;
     if (limits.custom.startDate && limits.custom.endDate) {
       const start = new Date(limits.custom.startDate);
@@ -165,31 +159,45 @@ const Home = () => {
       customSpent = filtered.reduce((acc, tx) => acc + tx.amount, 0);
     }
   
-    // Обновление state
     setSpent({
       week: weekSpent,
       month: monthSpent,
       custom: customSpent
     });
   }, [dashboardData, limits.custom.startDate, limits.custom.endDate]);
-  
+
+  const getStartOfWeek = (date) => {
+    const d = new Date(date);
+    const day = d.getDay();
+    const diff = d.getDate() - day + (day === 0 ? -6 : 1);
+    return new Date(d.setDate(diff));
+  };
+
+  const getEndOfWeek = (date) => {
+    const start = getStartOfWeek(date);
+    const end = new Date(start);
+    end.setDate(start.getDate() + 6);
+    return end;
+  };
+
+  const formatWeekRange = (start, end) => {
+    const formatter = new Intl.DateTimeFormat("ru-RU", { 
+      day: "numeric", 
+      month: "long",
+      year: start.getFullYear() !== end.getFullYear() ? "numeric" : undefined
+    });
+    
+    return `${formatter.format(start)} – ${formatter.format(end)}`;
+  };
 
   const now = new Date();
-  const formatter = new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" });
-
-  const startOfWeek = new Date(now);
-  const endOfWeek = new Date(now);
-  const day = now.getDay();
-  const diffToMonday = day === 0 ? -6 : 1 - day;
-  startOfWeek.setDate(now.getDate() + diffToMonday);
-  endOfWeek.setDate(startOfWeek.getDate() + 6);
+  const startOfWeek = getStartOfWeek(now);
+  const endOfWeek = getEndOfWeek(now);
   const daysLeftWeek = Math.ceil((endOfWeek - now) / (1000 * 60 * 60 * 24));
 
   const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
   const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
   const daysLeftMonth = Math.ceil((endOfMonth - now) / (1000 * 60 * 60 * 24));
-
-  
 
   return (
     <DashboardLayout activeMenu="Главная">
@@ -212,9 +220,7 @@ const Home = () => {
             </button>
           </div>
 
-          {/* Измененная часть с выровненными кнопками */}
           <div className="flex flex-col md:flex-row gap-6">
-            {/* Левый блок (неделя/месяц) */}
             <div className="md:w-1/2 flex flex-col">
               {limitType === "week" && (
                 <>
@@ -223,7 +229,7 @@ const Home = () => {
                     limit={limits.week}
                     spent={spent.week}
                     onChange={(value) => setLimits(prev => ({...prev, week: value}))}
-                    dateText={`${formatter.format(startOfWeek)} – ${formatter.format(endOfWeek)}. Осталось ${daysLeftWeek} ${pluralize(daysLeftWeek)}`}
+                    dateText={`${formatWeekRange(startOfWeek, endOfWeek)}. Осталось ${daysLeftWeek} ${pluralize(daysLeftWeek)}`}
                   />
                   <button 
                     className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all text-sm font-medium flex items-center justify-center gap-2" 
@@ -244,7 +250,7 @@ const Home = () => {
                     limit={limits.month}
                     spent={spent.month}
                     onChange={(value) => setLimits(prev => ({...prev, month: value}))}
-                    dateText={`${formatter.format(startOfMonth)} – ${formatter.format(endOfMonth)}. Осталось ${daysLeftMonth} ${pluralize(daysLeftMonth)}`}
+                    dateText={`${new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(startOfMonth)} – ${new Intl.DateTimeFormat("ru-RU", { day: "numeric", month: "long" }).format(endOfMonth)}. Осталось ${daysLeftMonth} ${pluralize(daysLeftMonth)}`}
                   />
                   <button 
                     className="mt-4 px-4 py-2 bg-primary text-white rounded-lg hover:bg-primary-dark transition-all text-sm font-medium flex items-center justify-center gap-2" 
@@ -259,7 +265,6 @@ const Home = () => {
               )}
             </div>
 
-            {/* Правый блок (кастомный) */}
             <div className="md:w-1/2 flex flex-col">
               <LimitBlock
                 label="Кастомный"
@@ -308,7 +313,6 @@ const Home = () => {
           </div>
         </div>
 
-        {/* Остальной код без изменений */}
         <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
           <InfoCard icon={<IoMdCard />} label="Общий Баланс" value={addThousandsSeparator(dashboardData?.totalBalance || 0)} color="bg-primary" />
           <InfoCard icon={<LuWalletMinimal />} label="Общий Доход" value={addThousandsSeparator(dashboardData?.totalIncome || 0)} color="bg-orange-500" />
@@ -328,7 +332,6 @@ const Home = () => {
   );
 };
 
-// Компонент LimitBlock и функция pluralize остаются без изменений
 const LimitBlock = ({ label, limit, spent, onChange, dateText }) => {
   const percent = limit === 0 ? 0 : Math.min(100, Math.round((spent / limit) * 100));
   const color = percent < 70 ? "bg-green-500" : percent < 100 ? "bg-yellow-400" : "bg-red-500";
@@ -373,7 +376,6 @@ const pluralize = (count) => {
 };
 
 export default Home;
-
 
 
 
